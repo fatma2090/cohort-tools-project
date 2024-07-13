@@ -2,11 +2,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const studentSchema = new Schema({
-  firstName: String,
-  lastName: String,
-  email: String,
-  phone: String,
-  linkedinUrl: String,
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: { type: String, required: true },
+  linkedinUrl: { type: String, default: "" },
   languages: {
     type: Array,
     enum: [

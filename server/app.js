@@ -11,7 +11,10 @@ const PORT = 5005;
 const cohorts = require("./cohorts.json");
 const students = require("./students.json");
 
+const { isAuthenticated } = require("./middleware/jwt.middleware");
+
 const Student = require("./models/Student.model");
+const Cohort = require("./models/Cohort.model");
 
 // INITIALIZE EXPRESS APP - https://expressjs.com/en/4x/api.html#express
 const app = express();
@@ -20,12 +23,6 @@ mongoose
   .connect("mongodb//:127.0.0.1:27017/cohort-tools-project")
   .then((x) => console.log("Connected to database", x.connections[0].name))
   .catch((err) => console.error("Error connecting to database", err));
-
-const cohortSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: String,
-});
-const Cohort = mongoose.model("Cohort", cohortSchema);
 
 // MIDDLEWARE
 // Research Team - Set up CORS middleware here:
@@ -47,12 +44,91 @@ app.use(cookieParser());
 app.get("/docs", (req, res) => {
   res.sendFile(__dirname + "/views/docs.html");
 });
+
+// creating new cohort
+
 app.get("/api/cohorts", (req, res) => {
-  Cohort.find().then((allCohorts) => {
-    console.log("allCohorts", allCohorts);
-  });
   res.json(cohorts);
 });
+
+app.post("/api/cohorts", (req, res) => {
+  console.log("req.body", req.body);
+
+  Cohort.create(req.body)
+    .then((newCohort) => {
+      console.log("newCohort", newCohort);
+      res.json(newCohort);
+    })
+    .catch((err) => {
+      console.error("Failed to add new cohort", err);
+      res.status(500).semd({ err: err });
+    });
+});
+
+//getting all cohort
+app.get("/api/cohorts", (req, res) => {
+  Cohort.find()
+    .then((allCohorts) => {
+      console.log("allCohorts", allCohorts);
+      res.json(allCohorts);
+    })
+    .catch((err) => {
+      console.log("Error on getting all cohort", err);
+      res.status(500).json({ err: err });
+    });
+});
+
+// getting one specific cohort by id
+app.get("/api/cohorts/:cohortId", (req, res) => {
+  const cohortId = req.params.cohortId;
+
+  Cohort.findById(cohortId)
+    .then((oneCohort) => {
+      console.log("oneCohort", oneCohort);
+      res.json(oneCohort);
+    })
+    .catch((err) => {
+      console.log("Error on getting cohort by id", err);
+      res.status(500).json({ err: err });
+    });
+});
+
+// update one specific cohort by id
+app.put("/api/cohorts/:cohortId", (req, res) => {
+  const cohortId = req.params.cohortId;
+  const updatedData = req.body;
+
+  Cohort.findByIdAndUpdate(cohortId, updatedData, { new: true })
+    .then((updatedCohort) => {
+      if (!updatedCohort) {
+        return res.status(400).json({ error: "Cohort not found" });
+      }
+      console.log("updatedCohort", updatedCohort);
+      res.json(updatedCohort);
+    })
+    .catch((err) => {
+      console.log("Failed to update one specific cohort by id", err);
+      res.status(500).json({ error: err });
+    });
+});
+
+//Delete the one cohort
+app.delete("/api/cohorts/:cohortId", (req, res) => {
+  const cohortId = req.params.cohortId;
+
+  Cohort.findByIdAndDelete(cohortId)
+    .then((deletedCohort) => {
+      console.log("deletedCohort", deletedCohort);
+      res.status(204).send();
+    })
+    .catch((err) => {
+      console.error("Error on deleting one cohort", err);
+      res.status(500).json({ err: err });
+    });
+});
+
+//following are student routes
+
 app.get("/api/students", (req, res) => {
   res.json(students);
 });
@@ -79,20 +155,6 @@ app.get("/api/students", (req, res) => {
     })
     .catch((err) => {
       console.error("Failed to get all students", err);
-      res.status(500).json({ err: err });
-    });
-});
-
-app.get("/api/students/cohort/:cohortId", (req, res) => {
-  const cohortId = req.params.id;
-
-  Student.findbyId(cohortId)
-    .then((oneCohortStudents) => {
-      console.log("oneCohortStudents", oneCohortStudents);
-      res.json(oneCohortStudents);
-    })
-    .catch((err) => {
-      console.error("Failed to get all students of one cohort", err);
       res.status(500).json({ err: err });
     });
 });
@@ -138,6 +200,12 @@ app.delete("/api/students/:studentId", (req, res) => {
       res.status(500).json({ err: err });
     });
 });
+
+const authRoutes = require("./routes/auth.routes");
+app.use("/auth", authRoutes);
+
+const usersRoutes = require("./routes/users.routes");
+app.use("/users", usersRoutes);
 
 // START SERVER
 app.listen(PORT, () => {
